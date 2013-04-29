@@ -6,8 +6,8 @@
 # wordpress using subfolders Options                                           #
 # Copyright (C) 2013 Diego Resendez                                            #
 #                                                                              #
-# URL:   http://www.GoForLinux.de/scripts/mcurl/                               #
-# eMail: Sven.Wegener@Stealer.de                                               #
+# URL:   https://github.com/zerooneit/fix-wordpress-multisitedb                #
+# eMail: diego.resendez@zero-oneit.com                                         #
 #                                                                              #
 ################################################################################
 
@@ -34,12 +34,13 @@ function OutputUsage ()
   echo "fixWPHost - Fix Database host"
   echo "Usage: `basename $0` [options...] [DOMAIN]"
   echo "Options:"
-  echo "  -u/--user <user mysql>  Set user for mysql "
-  echo "  -d/--database <database mysql>  Set database where modifications will apply "
-  echo "  -p/--password <password mysql>  Password for mysql user "
-  echo "  -P/--prefix <user mysql>  Wordpress table's prefix "
-  echo "  -V/--version <user mysql>  Version of this script "
-  echo "  -h/--help             Output this message"
+  echo "  -u/--user <user mysql>                Set user for mysql "
+  echo "  -d/--database <database mysql>        Set database where modifications will apply "
+  echo "  -p/--password <password mysql>        Password for mysql user "
+  echo "  -P/--prefix <wordpress table prefix>  Wordpress table's prefix "
+  echo "  -V/--version                          Version of this script "
+  echo "  -H/--host <db host>                   Host to mysql [localhost as default] "
+  echo "  -h/--help                             Output this message"
   echo
   
 
@@ -66,6 +67,11 @@ while [ "$#" -gt "0" ]; do
 
     -p|--password)
       PASS_MYSQL="$2"
+      shift 2
+    ;;
+
+    -H|--host)
+      DB_HOST="$2"
       shift 2
     ;;
 
@@ -109,6 +115,10 @@ if [ -z $DATABASE_MYSQL ]; then
    ErrorMessage 'Please enter a valid database'
 fi
 
+if [ -z $DB_HOST ]; then
+   DB_HOST='localhost'
+fi
+
 if [ -z $DOMAIN ]; then
    ErrorMessage 'Enter the DOMAIN to modify WP Site url'
 fi
@@ -123,18 +133,18 @@ fi
 #if [[ ! $URL =~ $regex ]]; then
 #  ErrorMessage "$URL must be a valid URL"
 #fi
-mysql -u "$USER_MYSQL" -p"$PASS_MYSQL" --database="$DATABASE_MYSQL" << EOF
+mysql -u "$USER_MYSQL" -p"$PASS_MYSQL" --database="$DATABASE_MYSQL" -h "$DB_HOST" << EOF
 update wp_site set domain="$DOMAIN";
 update wp_blogs set domain="$DOMAIN";
 EOF
 
-BLOGS=($(mysql -u $USER_MYSQL -p$PASS_MYSQL --database=$DATABASE_MYSQL -e"select blog_id from wp_blogs"))
+BLOGS=($(mysql -u $USER_MYSQL -p$PASS_MYSQL --database=$DATABASE_MYSQL -h $DB_HOST -e"select blog_id from wp_blogs"))
 
 for i in "${BLOGS[@]:1}"
 do
 BLOG="${Prefix}${i}_options"
-SUBBLOG=($(mysql -u $USER_MYSQL -p$PASS_MYSQL --database=$DATABASE_MYSQL -e"SELECT CONCAT(domain,path) as subblog FROM wp_blogs WHERE blog_id=${i}"))
-mysql -u "$USER_MYSQL" -p"$PASS_MYSQL" --database="$DATABASE_MYSQL" << EOF
+SUBBLOG=($(mysql -u $USER_MYSQL -p$PASS_MYSQL --database=$DATABASE_MYSQL -h $DB_HOST -e"SELECT CONCAT(domain,path) as subblog FROM wp_blogs WHERE blog_id=${i}"))
+mysql -u "$USER_MYSQL" -p"$PASS_MYSQL" -h "$DB_HOST" --database="$DATABASE_MYSQL" << EOF
 Update $BLOG SET option_value="http://${SUBBLOG[1]}" WHERE option_name='siteurl';
 Update $BLOG SET option_value="http://${SUBBLOG[1]}" WHERE option_name='home';
 EOF
